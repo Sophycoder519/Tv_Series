@@ -4,6 +4,7 @@ import org.example.Series;
 import org.example.SeriesModelClass;
 import org.junit.jupiter.api.*;
 
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
@@ -39,9 +40,24 @@ class SeriesTest {
         return testOut.toString(StandardCharsets.UTF_8);
     }
 
+    private static String normalize(String s) {
+        // Unify newlines and collapse trailing spaces to reduce brittle contains() checks
+        return s.replace("\r\n", "\n").replace("\r", "\n").trim();
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0, from = 0;
+        while (true) {
+            int idx = haystack.indexOf(needle, from);
+            if (idx < 0) break;
+            count++;
+            from = idx + needle.length();
+        }
+        return count;
+    }
+
     @Test
     void captureSeries_validInput_addsToList() {
-        // id, name, age (valid), episodes
         setInput("S1", "Breaking Bots", "16", "10");
 
         Series app = new Series(true);
@@ -53,25 +69,41 @@ class SeriesTest {
         assertEquals("Breaking Bots", s.getSeriesName());
         assertEquals("16", s.getSeriesAge());
         assertEquals("10", s.getSeriesNumberOfEpisodes());
-
-        assertTrue(out().contains("Series processed successfully!!!"));
+        assertTrue(normalize(out()).contains("Series processed successfully!!!"));
     }
 
     @Test
     void captureSeries_invalidAgeThenValid_showsErrorUntilValid() {
-        // id, name, invalid age "abc", invalid "1", invalid "19", then valid "5", episodes
         setInput("S2", "Robo Chef", "abc", "1", "19", "5", "8");
 
         Series app = new Series(true);
         app.captureSeries();
 
         assertEquals(1, app.getSeriesList().size());
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("5", s.getSeriesAge());
+        assertEquals("5", app.getSeriesList().get(0).getSeriesAge());
         String output = out();
-        // Error message should appear at least for the 3 invalid tries
-        int occurrences = output.split("You have entered an incorrect series age!!!", -1).length - 1;
+        int occurrences = countOccurrences(output, "You have entered an incorrect series age!!!");
         assertTrue(occurrences >= 3, "Expected age error message at least 3 times");
+    }
+
+    @Test
+    void captureSeries_boundaryAgeMin_accepted() {
+        setInput("S_MIN", "Min Age", "2", "1");
+
+        Series app = new Series(true);
+        app.captureSeries();
+
+        assertEquals("2", app.getSeriesList().get(0).getSeriesAge());
+    }
+
+    @Test
+    void captureSeries_boundaryAgeMax_accepted() {
+        setInput("S_MAX", "Max Age", "18", "1");
+
+        Series app = new Series(true);
+        app.captureSeries();
+
+        assertEquals("18", app.getSeriesList().get(0).getSeriesAge());
     }
 
     @Test
@@ -82,7 +114,7 @@ class SeriesTest {
 
         app.searchSeries();
 
-        String output = out();
+        String output = normalize(out());
         assertTrue(output.contains("SERIES ID: S3"));
         assertTrue(output.contains("SERIES NAME: Code Noir"));
         assertTrue(output.contains("SERIES AGE RESTRICTION: 13"));
@@ -96,7 +128,7 @@ class SeriesTest {
 
         app.searchSeries();
 
-        assertTrue(out().contains("Series with Series Id: NOPE was not found!"));
+        assertTrue(normalize(out()).contains("Series with Series Id: NOPE was not found!"));
     }
 
     @Test
@@ -104,7 +136,6 @@ class SeriesTest {
         Series app = new Series(true);
         app.getSeriesList().add(new SeriesModelClass("S4", "Initial", "10", "20"));
 
-        // id, newName, newAge(valid), newEpisodes
         setInput("S4", "Updated Name", "15", "22");
         app.updateSeries();
 
@@ -112,7 +143,22 @@ class SeriesTest {
         assertEquals("Updated Name", s.getSeriesName());
         assertEquals("15", s.getSeriesAge());
         assertEquals("22", s.getSeriesNumberOfEpisodes());
-        assertTrue(out().contains("Series updated successfully!"));
+        assertTrue(normalize(out()).contains("Series updated successfully!"));
+    }
+
+    @Test
+    void updateSeries_emptyInputs_keepExistingValues() {
+        Series app = new Series(true);
+        app.getSeriesList().add(new SeriesModelClass("S4b", "KeepAll", "9", "11"));
+
+        // id, name(blank), age(blank), episodes(blank)
+        setInput("S4b", "", "", "");
+        app.updateSeries();
+
+        SeriesModelClass s = app.getSeriesList().get(0);
+        assertEquals("KeepAll", s.getSeriesName());
+        assertEquals("9", s.getSeriesAge());
+        assertEquals("11", s.getSeriesNumberOfEpisodes());
     }
 
     @Test
@@ -120,21 +166,22 @@ class SeriesTest {
         Series app = new Series(true);
         app.getSeriesList().add(new SeriesModelClass("S5", "Keep Age", "12", "9"));
 
-        // id, newName(blank to keep), newAge(invalid), newEpisodes(blank to keep)
         setInput("S5", "", "50", "");
         app.updateSeries();
 
         SeriesModelClass s = app.getSeriesList().get(0);
         assertEquals("12", s.getSeriesAge(), "Age should remain unchanged on invalid input");
-        assertTrue(out().contains("Invalid age. Keeping previous value."));
+        assertTrue(normalize(out()).contains("Invalid age. Keeping previous value."));
     }
 
     @Test
     void updateSeries_notFound_printsMessage() {
         Series app = new Series(true);
         setInput("MISSING");
+
         app.updateSeries();
-        assertTrue(out().contains("Series not found!"));
+
+        assertTrue(normalize(out()).contains("Series not found!"));
     }
 
     @Test
@@ -142,12 +189,22 @@ class SeriesTest {
         Series app = new Series(true);
         app.getSeriesList().add(new SeriesModelClass("S6", "ToDelete", "14", "6"));
 
-        // id, confirm 'y'
         setInput("S6", "y");
         app.deleteSeries();
 
         assertTrue(app.getSeriesList().isEmpty());
-        assertTrue(out().contains("WAS deleted!"));
+        assertTrue(normalize(out()).contains("WAS deleted!"));
+    }
+
+    @Test
+    void deleteSeries_confirmUppercaseY_removesItem_caseInsensitive() {
+        Series app = new Series(true);
+        app.getSeriesList().add(new SeriesModelClass("S6Y", "ToDelete", "14", "6"));
+
+        setInput("S6Y", "Y");
+        app.deleteSeries();
+
+        assertTrue(app.getSeriesList().isEmpty());
     }
 
     @Test
@@ -155,27 +212,30 @@ class SeriesTest {
         Series app = new Series(true);
         app.getSeriesList().add(new SeriesModelClass("S7", "Keep", "14", "6"));
 
-        // id, confirm 'n'
         setInput("S7", "n");
         app.deleteSeries();
 
         assertEquals(1, app.getSeriesList().size());
-        assertTrue(out().contains("Deletion cancelled."));
+        assertTrue(normalize(out()).contains("Deletion cancelled."));
     }
 
     @Test
     void deleteSeries_notFound_printsMessage() {
         Series app = new Series(true);
         setInput("UNKNOWN");
+
         app.deleteSeries();
-        assertTrue(out().contains("Series not found!"));
+
+        assertTrue(normalize(out()).contains("Series not found!"));
     }
 
     @Test
     void seriesReport_empty_printsNoData() {
         Series app = new Series(true);
+
         app.seriesReport();
-        assertTrue(out().contains("No series data available."));
+
+        assertTrue(normalize(out()).contains("No series data available."));
     }
 
     @Test
@@ -186,7 +246,7 @@ class SeriesTest {
 
         app.seriesReport();
 
-        String o = out();
+        String o = normalize(out());
         assertTrue(o.contains("SERIES REPORT - 2025"));
         assertTrue(o.contains("SERIES ID: S8"));
         assertTrue(o.contains("SERIES ID: S9"));
@@ -195,18 +255,28 @@ class SeriesTest {
     @Test
     void displayMenu_exitPath_printsExiting() {
         Series app = new Series(true);
-        // Any key other than "1" should exit
         setInput("x");
+
         app.displayMenu();
-        assertTrue(out().contains("Exiting application..."));
+
+        assertTrue(normalize(out()).contains("Exiting application..."));
+    }
+
+    @Test
+    void displayMenu_invalidOption_thenExit() {
+        // "1" enter main menu, "9" invalid, then "6" exit
+        setInput("1", "9", "6");
+
+        Series app = new Series(true);
+        app.displayMenu();
+
+        String o = normalize(out());
+        assertTrue(o.contains("Invalid option. Please try again."));
+        assertTrue(o.contains("Exiting application..."));
     }
 
     @Test
     void displayMenu_captureViaMenu_flowWorks() {
-        // Sequence:
-        //   "1" (enter main menu)
-        //   "1" (choose capture)
-        //   then capture prompts: id, name, age, episodes
         setInput("1", "1", "M1", "Menu Show", "17", "3");
 
         Series app = new Series(true);
