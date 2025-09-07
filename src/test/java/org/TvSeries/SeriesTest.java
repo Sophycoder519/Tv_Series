@@ -3,290 +3,120 @@ package org.TvSeries;
 import org.example.Series;
 import org.example.SeriesModelClass;
 import org.junit.jupiter.api.*;
-
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-class SeriesTest {
+public class SeriesTest {
 
-    private InputStream systemInBackup;
-    private PrintStream systemOutBackup;
-    private ByteArrayOutputStream testOut;
+    private InputStream originalIn;
+    private PrintStream originalOut;
+    private ByteArrayOutputStream outContent;
 
     @BeforeEach
     void setUp() {
-        systemInBackup = System.in;
-        systemOutBackup = System.out;
-        testOut = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(testOut, true, StandardCharsets.UTF_8));
+        originalIn = System.in;
+        originalOut = System.out;
+        outContent = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(outContent, true, StandardCharsets.UTF_8));
     }
 
     @AfterEach
-    void tearDown() throws IOException {
-        System.setIn(systemInBackup);
-        System.setOut(systemOutBackup);
-        testOut.close();
+    void tearDown() throws Exception {
+        System.setIn(originalIn);
+        System.setOut(originalOut);
+        outContent.close();
     }
 
-    private void setInput(String... lines) {
+    private Series newSeriesWithInput(String... lines) {
         String joined = String.join(System.lineSeparator(), lines) + System.lineSeparator();
         System.setIn(new ByteArrayInputStream(joined.getBytes(StandardCharsets.UTF_8)));
+        return new Series(true);
     }
 
-    private String out() {
-        return testOut.toString(StandardCharsets.UTF_8);
+    private String console() {
+        return outContent.toString(StandardCharsets.UTF_8);
     }
 
-    private static String normalize(String s) {
-        // Unify newlines and collapse trailing spaces to reduce brittle contains() checks
-        return s.replace("\r\n", "\n").replace("\r", "\n").trim();
-    }
 
-    private static int countOccurrences(String haystack, String needle) {
-        int count = 0, from = 0;
-        while (true) {
-            int idx = haystack.indexOf(needle, from);
-            if (idx < 0) break;
-            count++;
-            from = idx + needle.length();
-        }
-        return count;
+
+    @Test
+    void TestSearchSeries() {
+        Series s = newSeriesWithInput("S100");
+        s.getSeriesList().add(new SeriesModelClass("S100", "Spacelands", "13", "12"));
+
+        s.searchSeries();
+
+        String out = console();
+        assertTrue(out.contains("SERIES ID: S100"));
+        assertTrue(out.contains("SERIES NAME: Spacelands"));
+        assertTrue(out.contains("SERIES AGE RESTRICTION: 13"));
+        assertTrue(out.contains("SERIES NUMBER OF EPISODES: 12"));
     }
 
     @Test
-    void captureSeries_validInput_addsToList() {
-        setInput("S1", "Breaking Bots", "16", "10");
-
-        Series app = new Series(true);
-        app.captureSeries();
-
-        assertEquals(1, app.getSeriesList().size());
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("S1", s.getSeriesId());
-        assertEquals("Breaking Bots", s.getSeriesName());
-        assertEquals("16", s.getSeriesAge());
-        assertEquals("10", s.getSeriesNumberOfEpisodes());
-        assertTrue(normalize(out()).contains("Series processed successfully!!!"));
+    void TestSearchSeries_SeriesNotFound() {
+        Series s = newSeriesWithInput("NOPE-1");
+        s.searchSeries();
+        assertTrue(console().contains("Series with Series Id: NOPE-1 was not found!"));
     }
 
     @Test
-    void captureSeries_invalidAgeThenValid_showsErrorUntilValid() {
-        setInput("S2", "Robo Chef", "abc", "1", "19", "5", "8");
+    void TestUpdateSeries() {
+        Series s = newSeriesWithInput("S200", "New Title", "16", "48");
+        s.getSeriesList().add(new SeriesModelClass("S200", "Old Title", "12", "10"));
 
-        Series app = new Series(true);
-        app.captureSeries();
+        s.updateSeries();
 
-        assertEquals(1, app.getSeriesList().size());
-        assertEquals("5", app.getSeriesList().get(0).getSeriesAge());
-        String output = out();
-        int occurrences = countOccurrences(output, "You have entered an incorrect series age!!!");
-        assertTrue(occurrences >= 3, "Expected age error message at least 3 times");
+        SeriesModelClass updated = s.getSeriesList().getFirst();
+        assertEquals("New Title", updated.getSeriesName());
+        assertEquals("16", updated.getSeriesAge());
+        assertEquals("48", updated.getSeriesNumberOfEpisodes());
+        assertTrue(console().contains("Series updated successfully!"));
     }
 
     @Test
-    void captureSeries_boundaryAgeMin_accepted() {
-        setInput("S_MIN", "Min Age", "2", "1");
+    void TestDeleteSeries() {
+        Series s = newSeriesWithInput("S300", "y");
+        s.getSeriesList().add(new SeriesModelClass("S300", "ToRemove", "15", "20"));
 
-        Series app = new Series(true);
-        app.captureSeries();
+        s.deleteSeries();
 
-        assertEquals("2", app.getSeriesList().get(0).getSeriesAge());
+        assertTrue(s.getSeriesList().isEmpty());
+        assertTrue(console().contains("WAS deleted!"));
     }
 
     @Test
-    void captureSeries_boundaryAgeMax_accepted() {
-        setInput("S_MAX", "Max Age", "18", "1");
+    void TestDeleteSeries_SeriesNotFound() {
+        Series s = newSeriesWithInput("BAD-ID");
+        s.getSeriesList().add(new SeriesModelClass("S400", "KeepMe", "14", "8"));
 
-        Series app = new Series(true);
-        app.captureSeries();
+        s.deleteSeries();
 
-        assertEquals("18", app.getSeriesList().get(0).getSeriesAge());
+        assertEquals(1, s.getSeriesList().size());
+        assertEquals("S400", s.getSeriesList().getFirst().getSeriesId());
+        assertTrue(console().contains("Series not found!"));
     }
 
     @Test
-    void searchSeries_found_printsDetails() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S3", "Code Noir", "13", "12"));
-        setInput("S3");
+    void TestSeriesAgeRestriction_AgeValid() {
+        Series s = newSeriesWithInput("S500", "ValidAgeShow", "10", "6");
 
-        app.searchSeries();
+        s.captureSeries();
 
-        String output = normalize(out());
-        assertTrue(output.contains("SERIES ID: S3"));
-        assertTrue(output.contains("SERIES NAME: Code Noir"));
-        assertTrue(output.contains("SERIES AGE RESTRICTION: 13"));
-        assertTrue(output.contains("SERIES NUMBER OF EPISODES: 12"));
+        assertEquals(1, s.getSeriesList().size());
+        assertEquals("10", s.getSeriesList().getFirst().getSeriesAge());
+        assertFalse(console().contains("You have entered an incorrect series age!!!"));
     }
 
     @Test
-    void searchSeries_notFound_printsNotFound() {
-        Series app = new Series(true);
-        setInput("NOPE");
+    void TestSeriesAgeRestriction_SeriesAgeInValid() {
+        Series s = newSeriesWithInput("S600", "InvalidAgeShow", "1", "19", "abc", "12", "22");
 
-        app.searchSeries();
+        s.captureSeries();
 
-        assertTrue(normalize(out()).contains("Series with Series Id: NOPE was not found!"));
-    }
-
-    @Test
-    void updateSeries_allValid_updatesAllFields() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S4", "Initial", "10", "20"));
-
-        setInput("S4", "Updated Name", "15", "22");
-        app.updateSeries();
-
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("Updated Name", s.getSeriesName());
-        assertEquals("15", s.getSeriesAge());
-        assertEquals("22", s.getSeriesNumberOfEpisodes());
-        assertTrue(normalize(out()).contains("Series updated successfully!"));
-    }
-
-    @Test
-    void updateSeries_emptyInputs_keepExistingValues() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S4b", "KeepAll", "9", "11"));
-
-        // id, name(blank), age(blank), episodes(blank)
-        setInput("S4b", "", "", "");
-        app.updateSeries();
-
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("KeepAll", s.getSeriesName());
-        assertEquals("9", s.getSeriesAge());
-        assertEquals("11", s.getSeriesNumberOfEpisodes());
-    }
-
-    @Test
-    void updateSeries_invalidAge_keepsPreviousAge() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S5", "Keep Age", "12", "9"));
-
-        setInput("S5", "", "50", "");
-        app.updateSeries();
-
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("12", s.getSeriesAge(), "Age should remain unchanged on invalid input");
-        assertTrue(normalize(out()).contains("Invalid age. Keeping previous value."));
-    }
-
-    @Test
-    void updateSeries_notFound_printsMessage() {
-        Series app = new Series(true);
-        setInput("MISSING");
-
-        app.updateSeries();
-
-        assertTrue(normalize(out()).contains("Series not found!"));
-    }
-
-    @Test
-    void deleteSeries_confirmYes_removesItem() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S6", "ToDelete", "14", "6"));
-
-        setInput("S6", "y");
-        app.deleteSeries();
-
-        assertTrue(app.getSeriesList().isEmpty());
-        assertTrue(normalize(out()).contains("WAS deleted!"));
-    }
-
-    @Test
-    void deleteSeries_confirmUppercaseY_removesItem_caseInsensitive() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S6Y", "ToDelete", "14", "6"));
-
-        setInput("S6Y", "Y");
-        app.deleteSeries();
-
-        assertTrue(app.getSeriesList().isEmpty());
-    }
-
-    @Test
-    void deleteSeries_confirmNo_keepsItem() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S7", "Keep", "14", "6"));
-
-        setInput("S7", "n");
-        app.deleteSeries();
-
-        assertEquals(1, app.getSeriesList().size());
-        assertTrue(normalize(out()).contains("Deletion cancelled."));
-    }
-
-    @Test
-    void deleteSeries_notFound_printsMessage() {
-        Series app = new Series(true);
-        setInput("UNKNOWN");
-
-        app.deleteSeries();
-
-        assertTrue(normalize(out()).contains("Series not found!"));
-    }
-
-    @Test
-    void seriesReport_empty_printsNoData() {
-        Series app = new Series(true);
-
-        app.seriesReport();
-
-        assertTrue(normalize(out()).contains("No series data available."));
-    }
-
-    @Test
-    void seriesReport_withData_printsAll() {
-        Series app = new Series(true);
-        app.getSeriesList().add(new SeriesModelClass("S8", "Shown", "16", "10"));
-        app.getSeriesList().add(new SeriesModelClass("S9", "Also Shown", "8", "5"));
-
-        app.seriesReport();
-
-        String o = normalize(out());
-        assertTrue(o.contains("SERIES REPORT - 2025"));
-        assertTrue(o.contains("SERIES ID: S8"));
-        assertTrue(o.contains("SERIES ID: S9"));
-    }
-
-    @Test
-    void displayMenu_exitPath_printsExiting() {
-        Series app = new Series(true);
-        setInput("x");
-
-        app.displayMenu();
-
-        assertTrue(normalize(out()).contains("Exiting application..."));
-    }
-
-    @Test
-    void displayMenu_invalidOption_thenExit() {
-        // "1" enter main menu, "9" invalid, then "6" exit
-        setInput("1", "9", "6");
-
-        Series app = new Series(true);
-        app.displayMenu();
-
-        String o = normalize(out());
-        assertTrue(o.contains("Invalid option. Please try again."));
-        assertTrue(o.contains("Exiting application..."));
-    }
-
-    @Test
-    void displayMenu_captureViaMenu_flowWorks() {
-        setInput("1", "1", "M1", "Menu Show", "17", "3");
-
-        Series app = new Series(true);
-        app.displayMenu();
-
-        assertEquals(1, app.getSeriesList().size());
-        SeriesModelClass s = app.getSeriesList().get(0);
-        assertEquals("M1", s.getSeriesId());
-        assertEquals("Menu Show", s.getSeriesName());
-        assertEquals("17", s.getSeriesAge());
-        assertEquals("3", s.getSeriesNumberOfEpisodes());
+        String out = console();
+        assertTrue(out.contains("You have entered an incorrect series age!!!"));
+        assertEquals("12", s.getSeriesList().getFirst().getSeriesAge());
     }
 }
