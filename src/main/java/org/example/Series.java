@@ -1,221 +1,236 @@
+
 package org.example;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
 public class Series {
-    private final ArrayList<SeriesModelClass> seriesList;
-    private final Scanner scanner;
-    private final boolean testMode;
+
+    private final List<SeriesModelClass> seriesList = new ArrayList<>();
+    private Scanner scanner;
 
     public Series() {
-        this(false);
-    }
-
-    public Series(boolean testMode) {
-        this.seriesList = new ArrayList<>();
         this.scanner = new Scanner(System.in);
-        this.testMode = testMode;
     }
 
+    // ===== 1.1 Start Screen =====
     public void displayMenu() {
-        System.out.println("\nLATEST SERIES - 2025");
+        System.out.println();
+        System.out.println("LATEST SERIES - 2025");
         System.out.println("***********************************************");
-        System.out.println("Enter (1) to launch menu or any other key to exit");
+        System.out.print("Enter (1) to launch menu or any other key to exit\n ");
 
-        String input = scanner.nextLine();
-        if (input.equals("1")) {
+        String input = scanner.nextLine().trim();
+        if ("1".equals(input)) {
             showMainMenu();
         } else {
-            exitSeriesApplication();
+            ExitSeriesApplication();
         }
     }
 
+    // ===== Main Menu =====
     private void showMainMenu() {
-        System.out.println("\nPlease select one of the following menu items:");
-        System.out.println("(1) Capture a new series.");
-        System.out.println("(2) Search for a series.");
-        System.out.println("(3) Update series age restriction");
-        System.out.println("(4) Delete a series.");
-        System.out.println("(5) Print series report - 2025");
-        System.out.println("(6) Exit Application.");
+        while (true) {
+            System.out.println();
+            System.out.println("Please select one of the following menu items:");
+            System.out.println("(1) Capture a new series.");
+            System.out.println("(2) Search for a series.");
+            System.out.println("(3) Update series age restriction");
+            System.out.println("(4) Delete a series.");
+            System.out.println("(5) Print series report - 2025");
+            System.out.println("(6) Exit Application.");
+            System.out.print("Enter your choice");
 
-        String choice = scanner.nextLine();
-        switch (choice) {
-            case "1" -> captureSeries();
-            case "2" -> searchSeries();
-            case "3" -> updateSeries();
-            case "4" -> deleteSeries();
-            case "5" -> seriesReport();
-            case "6" -> exitSeriesApplication();
-            default -> {
-                System.out.println("Invalid option. Please try again.");
-                showMainMenu();
+            String choice = scanner.nextLine().trim();
+            switch (choice) {
+                case "1": CaptureSeries(); break;
+                case "2": SearchSeries(); break;
+                case "3": UpdateSeries(); break;
+                case "4": DeleteSeries(); break;
+                case "5": SeriesReport(); break;
+                case "6": ExitSeriesApplication(); return;
+                default:  System.out.println("Invalid option. Please select 1-6.");
             }
         }
     }
 
-    public void captureSeries() {
-        System.out.println("\nCAPTURE A NEW SERIES");
-        System.out.println("***************");
+    // ===== 1.2 & 1.4 Capture (save to memory) =====
+    public void CaptureSeries() {
+        System.out.println();
+        System.out.println("CAPTURE A NEW SERIES");
+        System.out.println("***********************************************");
 
-        System.out.print("Enter the series id: ");
-        String id = scanner.nextLine();
-
-        System.out.print("Enter the series name: ");
-        String name = scanner.nextLine();
-
-        String age;
-        while (true) {
-            System.out.print("Enter the series age restriction: ");
-            age = scanner.nextLine();
-            try {
-                int ageNum = Integer.parseInt(age);
-                if (ageNum >= 2 && ageNum <= 18) break;
-            } catch (NumberFormatException ignored) {}
-            showInvalidAgeMessage();
-        }
-
-        System.out.print("Enter the number of episodes for " + name + ": ");
-        String episodes = scanner.nextLine();
+        String id = prompt("Enter the series id: ");
+        String name = prompt("Enter the series name: ");
+        String age = promptValidAge();               // 1.3 numeric 2..18 only
+        String episodes = promptValidEpisodes(name); // positive integer
 
         seriesList.add(new SeriesModelClass(id, name, age, episodes));
+
         System.out.println("Series processed successfully!!!");
-
-        if (!testMode) displayMenu();
+        promptReturnToMenu();
     }
 
-    public void searchSeries() {
+    // ===== 1.5 Search =====
+    public void SearchSeries() {
         System.out.print("\nEnter the series id to search: ");
-        String searchId = scanner.nextLine();
+        String id = scanner.nextLine().trim();
 
-        SeriesModelClass found = findSeriesById(searchId);
-        if (found != null) {
-            System.out.println("---");
-            System.out.println("SERIES ID: " + found.getSeriesId());
-            System.out.println("SERIES NAME: " + found.getSeriesName());
-            System.out.println("SERIES AGE RESTRICTION: " + found.getSeriesAge());
-            System.out.println("SERIES NUMBER OF EPISODES: " + found.getSeriesNumberOfEpisodes());
-            System.out.println("---");
-        } else {
-            System.out.println("---");
-            System.out.println("Series with Series Id: " + searchId + " was not found!");
-            System.out.println("---");
-        }
-
-        if (!testMode) displayMenu();
-    }
-
-    public void updateSeries() {
-        System.out.print("\nEnter the series id to update: ");
-        String updateId = scanner.nextLine();
-
-        SeriesModelClass toUpdate = findSeriesById(updateId);
-        if (toUpdate == null) {
-            System.out.println("Series not found!");
-            if (!testMode) displayMenu();
+        SeriesModelClass s = findById(id);
+        if (s == null) {
+            System.out.println();
+            System.out.println("Series with Series Id: " + id + " was not found!");
+            promptReturnToMenu();
             return;
         }
 
-        System.out.print("Enter the series name (" + toUpdate.getSeriesName() + "): ");
-        String newName = scanner.nextLine();
-        if (!newName.isEmpty()) toUpdate.setSeriesName(newName);
+        System.out.println("----------------------------------------");
+        System.out.println("SERIES ID: " + s.getSeriesId());
+        System.out.println("SERIES NAME: " + s.getSeriesName());
+        System.out.println("SERIES AGE RESTRICTION: " + s.getSeriesAge());
+        System.out.println("SERIES NUMBER OF EPISODES: " + s.getSeriesNumberOfEpisodes());
+        System.out.println("----------------------------------------");
+        promptReturnToMenu();
+    }
 
-        System.out.print("Enter the age restriction (" + toUpdate.getSeriesAge() + "): ");
-        String newAge = scanner.nextLine();
-        if (!newAge.isEmpty()) {
-            try {
-                int ageNum = Integer.parseInt(newAge);
-                if (ageNum >= 2 && ageNum <= 18) {
-                    toUpdate.setSeriesAge(newAge);
-                } else {
-                    System.out.println("Invalid age. Keeping previous value.");
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Keeping previous value.");
+    // ===== 1.6 Update (replace object; no setters) =====
+    public void UpdateSeries() {
+        System.out.print("\nEnter the series id to update: ");
+        String id = scanner.nextLine().trim();
+
+        int index = findIndexById(id);
+        if (index < 0) {
+            System.out.println("Series with Series Id: " + id + " was not found!");
+            promptReturnToMenu();
+            return;
+        }
+
+        String name = prompt("Enter the series name: ");
+        String age = promptValidAge();
+        String episodes = promptValidEpisodes(name);
+
+        seriesList.set(index, new SeriesModelClass(id, name, age, episodes));
+        promptReturnToMenu();
+    }
+
+    // ===== 1.7 Delete (confirm with y) =====
+    public void DeleteSeries() {
+        System.out.print("\nEnter the series id to delete: ");
+        String id = scanner.nextLine().trim();
+
+        int index = findIndexById(id);
+        if (index < 0) {
+            System.out.println("Series with Series Id: " + id + " was not found!");
+            promptReturnToMenu();
+            return;
+        }
+
+        System.out.print("Are you sure you want to delete series " + id + " from the system? Yes (y) to delete.\n> ");
+        String confirm = scanner.nextLine().trim();
+        if (confirm.equalsIgnoreCase("y")) {
+            seriesList.remove(index);
+            System.out.println("----------------------------------------");
+            System.out.println("Series with Series Id: " + id + " WAS deleted!");
+            System.out.println("----------------------------------------");
+        } else {
+            System.out.println("Delete cancelled.");
+        }
+        promptReturnToMenu();
+    }
+
+    // ===== 1.10 Report =====
+    public void SeriesReport() {
+        System.out.println("\nPRINT SERIES REPORT - 2025");
+        System.out.println("***********************************************");
+        if (seriesList.isEmpty()) {
+            System.out.println("No series captured yet.");
+        } else {
+            for (SeriesModelClass s : seriesList) {
+                System.out.println("SERIES ID: " + s.getSeriesId());
+                System.out.println("SERIES NAME: " + s.getSeriesName());
+                System.out.println("SERIES AGE RESTRICTION: " + s.getSeriesAge());
+                System.out.println("SERIES NUMBER OF EPISODES: " + s.getSeriesNumberOfEpisodes());
+                System.out.println("----------------------------------------");
             }
         }
-
-        System.out.print("Enter the number of episodes (" + toUpdate.getSeriesNumberOfEpisodes() + "): ");
-        String newEpisodes = scanner.nextLine();
-        if (!newEpisodes.isEmpty()) toUpdate.setSeriesNumberOfEpisodes(newEpisodes);
-
-        System.out.println("Series updated successfully!");
-        if (!testMode) displayMenu();
+        promptReturnToMenu();
     }
 
-    public void deleteSeries() {
-        System.out.print("\nEnter the series id to delete: ");
-        String deleteId = scanner.nextLine();
-
-        SeriesModelClass toDelete = findSeriesById(deleteId);
-        if (toDelete == null) {
-            System.out.println("Series not found!");
-            if (!testMode) displayMenu();
-            return;
-        }
-
-        System.out.print("Are you sure you want to delete series " + deleteId + " from the system? Yes (y) to delete: ");
-        String confirm = scanner.nextLine();
-        if (confirm.equalsIgnoreCase("y")) {
-            seriesList.remove(toDelete);
-            System.out.println("---");
-            System.out.println("Series with Series Id: " + deleteId + " WAS deleted!");
-            System.out.println("---");
-        } else {
-            System.out.println("Deletion cancelled.");
-        }
-
-        if (!testMode) displayMenu();
+    // ===== Exit =====
+    public void ExitSeriesApplication() {
+        System.out.println("\nExiting application. Goodbye!");
     }
 
-    public void seriesReport() {
-        if (seriesList.isEmpty()) {
-            System.out.println("No series data available.");
-            if (!testMode) displayMenu();
-            return;
-        }
+    // ------------------ Console + validation helpers ------------------
 
-        System.out.println("\nSERIES REPORT - 2025");
-        int count = 1;
-        for (SeriesModelClass series : seriesList) {
-            System.out.println("Series " + count);
-            System.out.println("---");
-            System.out.println("SERIES ID: " + series.getSeriesId());
-            System.out.println("SERIES NAME: " + series.getSeriesName());
-            System.out.println("SERIES AGE RESTRICTION: " + series.getSeriesAge());
-            System.out.println("NUMBER OF EPISODES: " + series.getSeriesNumberOfEpisodes());
-            System.out.println("---");
-            count++;
-        }
-
-        if (!testMode) displayMenu();
+    private String prompt(String label) {
+        System.out.print(label);
+        return scanner.nextLine().trim();
     }
 
-    public void exitSeriesApplication() {
-        System.out.println("Exiting application...");
-        if (!testMode) {
-            scanner.close();
+    // 1.3: numbers only and between 2..18; prompts & messages like the screenshots
+    private String promptValidAge() {
+        while (true) {
+            System.out.print("Enter the series age restriction: ");
+            String first = scanner.nextLine().trim();
+            if (isValidAge(first)) return first;
+
+            System.out.println("You have entered a incorrect series age!!!");
+            System.out.print("Please re-enter the series age >> ");
+            String retry = scanner.nextLine().trim();
+            if (isValidAge(retry)) return retry;
+
+            System.out.println("You have entered a incorrect series age!!!");
+        }
+    }
+
+    private boolean isValidAge(String value) {
+        if (!value.matches("\\d+")) return false;
+        int n = Integer.parseInt(value);
+        return n >= 2 && n <= 18;
+    }
+
+    private String promptValidEpisodes(String seriesName) {
+        while (true) {
+            System.out.print("Enter the number of episodes for " + seriesName + ": ");
+            String input = scanner.nextLine().trim();
+            if (input.matches("\\d+") && Integer.parseInt(input) > 0) return input;
+
+            System.out.println("Invalid number of episodes!");
+            System.out.print("Please re-enter the number of episodes >> ");
+            String retry = scanner.nextLine().trim();
+            if (retry.matches("\\d+") && Integer.parseInt(retry) > 0) return retry;
+
+            System.out.println("Invalid number of episodes!");
+        }
+    }
+
+    private SeriesModelClass findById(String id) {
+        int i = findIndexById(id);
+        return i >= 0 ? seriesList.get(i) : null;
+    }
+
+    private int findIndexById(String id) {
+        for (int i = 0; i < seriesList.size(); i++) {
+            if (seriesList.get(i).getSeriesId().equals(id)) return i;
+        }
+        return -1;
+    }
+
+    private void promptReturnToMenu() {
+        System.out.print("\nEnter (1) to launch menu or any other key to exit\n> ");
+        String input = scanner.nextLine().trim();
+        if (!"1".equals(input)) {
+            ExitSeriesApplication();
             System.exit(0);
         }
     }
 
-    public List<SeriesModelClass> getSeriesList() {
-        return seriesList;
-    }
-
-    private void showInvalidAgeMessage() {
-        System.out.println("You have entered an incorrect series age!!!");
-        System.out.println("Please re-enter the series age >>");
-    }
-
-    private SeriesModelClass findSeriesById(String id) {
-        for (SeriesModelClass s : seriesList) {
-            if (s.getSeriesId().equals(id)) {
-                return s;
-            }
-        }
-        return null;
+    // ===================== TEST HOOK =====================
+    /** Rebind the internal Scanner to a new input stream (use in unit tests after System.setIn(...)). */
+    public void resetInputForTest(InputStream in) {
+        this.scanner = new Scanner(in);
     }
 }
