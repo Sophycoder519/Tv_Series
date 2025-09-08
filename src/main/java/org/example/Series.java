@@ -20,7 +20,7 @@ public class Series {
         System.out.println();
         System.out.println("LATEST SERIES - 2025");
         System.out.println("***********************************************");
-        System.out.print("Enter (1) to launch menu or any other key to exit\n ");
+        System.out.print("Enter (1) to launch menu or any other key to exit\n");
 
         String input = scanner.nextLine().trim();
         if ("1".equals(input)) {
@@ -86,12 +86,12 @@ public class Series {
             return;
         }
 
-        System.out.println("----------------------------------------");
+        System.out.println("-----------------------------------------------------------");
         System.out.println("SERIES ID: " + s.getSeriesId());
         System.out.println("SERIES NAME: " + s.getSeriesName());
         System.out.println("SERIES AGE RESTRICTION: " + s.getSeriesAge());
         System.out.println("SERIES NUMBER OF EPISODES: " + s.getSeriesNumberOfEpisodes());
-        System.out.println("----------------------------------------");
+        System.out.println("-----------------------------------------------------------");
         promptReturnToMenu();
     }
 
@@ -142,8 +142,8 @@ public class Series {
 
     // ===== 1.10 Report =====
     public void SeriesReport() {
-        System.out.println("\nPRINT SERIES REPORT - 2025");
-        System.out.println("***********************************************");
+        System.out.println("\n SERIES REPORT - 2025");
+        System.out.println("-----------------------------------------------------------------");
         if (seriesList.isEmpty()) {
             System.out.println("No series captured yet.");
         } else {
@@ -152,7 +152,7 @@ public class Series {
                 System.out.println("SERIES NAME: " + s.getSeriesName());
                 System.out.println("SERIES AGE RESTRICTION: " + s.getSeriesAge());
                 System.out.println("SERIES NUMBER OF EPISODES: " + s.getSeriesNumberOfEpisodes());
-                System.out.println("----------------------------------------");
+                System.out.println("-----------------------------------------------------------");
             }
         }
         promptReturnToMenu();
@@ -220,7 +220,7 @@ public class Series {
     }
 
     private void promptReturnToMenu() {
-        System.out.print("\nEnter (1) to launch menu or any other key to exit\n> ");
+        System.out.print("\nEnter (1) to launch menu or any other key to exit\n ");
         String input = scanner.nextLine().trim();
         if (!"1".equals(input)) {
             ExitSeriesApplication();
